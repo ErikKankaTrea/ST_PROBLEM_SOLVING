@@ -1,0 +1,107 @@
+.-------------.
+INTRODUCCIÓN:
+.-------------.
+Despues de haber leído el problema a resolver (muy lol), he organizado el "reto" en distintas fases:
+
+1. Crear una función/modulo para lectura de los datos.
+2. Crear una función/modulo independiente a 1. o dentro de 1. para hacer una limpieza.
+	(Parece que todos deberían estar en inglés, eliminar signos de puntuación, espacios dobles,
+	 básicamente intentar sanetizar los textos de la mejor manera)
+
+3. Organizar datos de manera tabular ya que estan de manera desestructurada.
+4. Generar variables o transformar datos que ayuden a la predicción de la categoria del comunicado.
+5. Entrenar modelos (xgboost, catboost, logistic, randomForest).
+6. Medir performance de cada uno. 
+7. Quizá hacer transfer learning usand FastAI
+
+
+NOTA: TODOS LOS PUNTOS ANTERIORES NOMBRADOS ARRIBA, 
+      ASUMEN QUE HABRÁ MODIFICACIONES Y PEQUEÑOS ROADBLOCKS MIENTRAS SE DESARROLLA EL
+      EJERCICIO.
+
+
+
+---------------------
+EMPEZAMOS:
+---------------------
+
+1. Lectura de los ficheros: 
+---------------------------
+La idea es crear una función con un solo argumento (relación con el ejecutable final)
+de path para que cree un diccionario. Key:Value . Key=Categoria / Value= Txt
+
+Block road:
+Parece que hay algún archivo que no tiene mismo patron de lectura en el nombre.
+
+Finalmente este "modulo" de lectura: (no sé si hacer una clase con un init y luego cargar las tres funciones..)
+-Coge el nombre de las carpetas que contienen los diferentes comunicados a categorizar
+-Corrige los nombres que puedan dar problemas a la hora de la lectura
+-Carga en un diccionario categoria:texto, la informacion
+
+
+2. Limpieza de los comunicados: 
+---------------------------
+Una buena idea... si pesasen mucho los ficheros sería limpiarlos "on the fly" para no cargarlo
+todo en la ram y añadirle el procesado a la memoria. De momento lo haré independiente.
+
+Aquí hay una parte de procesado de cada fichero. En el que se aplican una serie de funciones para
+quitar de una primera pasada, símbolos que no deberían aportar sentido, eliminar palabras cortas,
+stop words en ingles [quizá haya más idiomas], y estandarizar las palabras usando un lemmatizer
+
+Una vez procesadas queremos organizarlas en un data frame, porque a partir de aquí se 
+crearán diferentes tablas para los modelos.
+1. Matriz de frecuencias (Esto tendra mucha dimensión probablemente habrá que reducir la dimensionalidad)
+2. Word2Vec embedding (usando el modelo w2v pre.entrenado en inglés, podría ser de ayuda, convertir todo en numérico, aprovechando los embeddings)
+
+
+Se ha considerado que las palabras más frecuentes que se repiten en todos los comunicados serán retiraos
+y que los que tengan una frecuencia muy muy pequeña también. Intentando así quitar posibles redundancias y
+por otro lado eliminar ruido esperando que no se elimine mucha información.
+
+
+3. Organización de los datos:
+---------------------------
+Una vez que se ha aplicado una "normalización/limpieza" del vocabulario. 
+Creamos aleatorizamos las filas del data frame creado desde el diccionario.
+Ahora es hora de tener un train / test , primero vamos con un holdout train test. Es menos fino
+que hacer cross validation (para ponerlo en producción si que haría una validación de esta manera).
+
+En el train y test generados haremos las transformaciones pertintentes para comprobar las diferentes
+metodologias nombradas arriba.
+1. term frequency–inverse document frequency. Para resaltar palabras que probablemente pasen discretas por las más frecuentes
+esto ajustaria los datos a una escala de grises, o sea, que no este sesgado por los counts de mayor frecuencia
+2. data frame de los embeddings medios de los docs
+
+
+4. Modelos:
+---------------------------
+Se comparan dos modelos random forest y xgboost en las dos metodologias, mencionadas.
+Weighted accuracy y accuracy darán parecido resultado al estar uniformemente distribuidas.
+Pero nos fijaremos más en la metrica "precision" y "racall" para controlar las amenazas.
+Sería importante tener un ratio alto en las amenazas verdaderas entre estas y las falsas amenazas
+Si es una falsa amenaza no es tan grave (supongo... )
+Puede que sea más preocupante tener muchos false negatives, o sea que el modelo diga que no es amenaza 
+cuando si es. Aquí el recall debería ser alto.
+
+Estos son los resultados de usar random forest suando word2vec como apoyo.
+
+               precision    recall  f1-score   support
+
+   exploration       0.76      0.88      0.81       107
+   headhunters       0.90      0.82      0.85       137
+  intelligence       0.64      0.80      0.71        76
+     logistics       0.84      0.70      0.77       114
+      politics       0.93      0.83      0.88       132
+transportation       0.81      0.86      0.83       102
+       weapons       0.73      0.74      0.73       110
+
+ En lineas generales tiene un accuracy del 80%
+
+
+Hipótesis que podrían mejorarlo:
+-Mejor limpieza
+-N-GRAMS?
+-FastAI?
+
+
+
